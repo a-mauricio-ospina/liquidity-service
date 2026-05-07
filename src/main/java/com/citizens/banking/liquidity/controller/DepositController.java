@@ -29,7 +29,7 @@ public class DepositController {
     }
 
     @GetMapping("/{depositId}")
-    public ResponseEntity<DepositResponse> getDepositById(@PathVariable String depositId) {
+    public ResponseEntity<DepositResponse> getDepositById(@PathVariable Long depositId) {
         log.debug("Request received: get deposit depositId={}", depositId);
         DepositResponse deposit = depositService.findById(depositId);
         log.debug("Returning deposit depositId={}", depositId);
