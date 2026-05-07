@@ -3,11 +3,13 @@ package com.citizens.banking.liquidity.service;
 import com.citizens.banking.liquidity.dto.DepositResponse;
 import com.citizens.banking.liquidity.exception.DepositNotFoundException;
 import com.citizens.banking.liquidity.util.DepositConstants;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
 
+@Slf4j
 @Service
 public class DepositService {
 
@@ -29,13 +31,18 @@ public class DepositService {
     );
 
     public List<DepositResponse> findAll() {
+        log.info("Fetching all deposits, count={}", DEPOSITS.size());
         return DEPOSITS;
     }
 
     public DepositResponse findById(String depositId) {
+        log.info("Fetching deposit depositId={}", depositId);
         return DEPOSITS.stream()
             .filter(d -> d.getDepositId().equals(depositId))
             .findFirst()
-            .orElseThrow(() -> new DepositNotFoundException(depositId));
+            .orElseThrow(() -> {
+                log.warn("Deposit not found depositId={}", depositId);
+                return new DepositNotFoundException(depositId);
+            });
     }
 }
