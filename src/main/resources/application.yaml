@@ -41,6 +41,13 @@ info:
     description: Citizens Banking Liquidity Service
     version: 1.0.0
 
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+  paths-to-exclude: /actuator/**
+
 logging:
   level:
     com.citizens.banking: INFO

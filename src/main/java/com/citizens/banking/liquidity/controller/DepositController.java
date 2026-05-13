@@ -1,7 +1,15 @@
 package com.citizens.banking.liquidity.controller;
 
+import com.citizens.banking.liquidity.dto.ApiErrorResponse;
 import com.citizens.banking.liquidity.dto.DepositResponse;
 import com.citizens.banking.liquidity.service.DepositService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+@Tag(name = "Deposits", description = "Operations for managing liquidity deposits")
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/deposits")
@@ -20,6 +29,13 @@ public class DepositController {
 
     private final DepositService depositService;
 
+    @Operation(summary = "List all deposits", description = "Returns a list of all deposit records in the system")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Deposits retrieved successfully",
+            content = @Content(schema = @Schema(implementation = DepositResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Internal server error",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    })
     @GetMapping
     public ResponseEntity<List<DepositResponse>> getAllDeposits() {
         log.debug("Request received: list all deposits");
@@ -28,8 +44,19 @@ public class DepositController {
         return ResponseEntity.ok(deposits);
     }
 
+    @Operation(summary = "Get deposit by ID", description = "Returns a single deposit record by its unique identifier")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Deposit found",
+            content = @Content(schema = @Schema(implementation = DepositResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Deposit not found",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Internal server error",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    })
     @GetMapping("/{depositId}")
-    public ResponseEntity<DepositResponse> getDepositById(@PathVariable Long depositId) {
+    public ResponseEntity<DepositResponse> getDepositById(
+            @Parameter(description = "Unique identifier of the deposit", required = true)
+            @PathVariable Long depositId) {
         log.debug("Request received: get deposit depositId={}", depositId);
         DepositResponse deposit = depositService.findById(depositId);
         log.debug("Returning deposit depositId={}", depositId);
