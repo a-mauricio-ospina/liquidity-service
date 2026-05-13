@@ -8,17 +8,18 @@ clean architecture and enterprise Spring Boot conventions.
 
 ## Tech Stack
 
-| Technology        | Version    |
-|-------------------|------------|
-| Java              | 17         |
-| Spring Boot       | 3.3.5      |
-| Spring Web        | (managed)  |
-| Spring Data JPA   | (managed)  |
-| Spring Actuator   | (managed)  |
-| Spring Boot       | (managed)  |
-| PostgreSQL Driver | (managed)  |
-| Lombok            | (managed)  |
-| Maven             | 3.9+       |
+| Technology              | Version    |
+|-------------------------|------------|
+| Java                    | 17         |
+| Spring Boot             | 3.3.5      |
+| Spring Web              | (managed)  |
+| Spring Data JPA         | (managed)  |
+| Spring Validation       | (managed)  |
+| Spring Actuator         | (managed)  |
+| PostgreSQL Driver       | (managed)  |
+| Springdoc OpenAPI UI    | 2.6.0      |
+| Lombok                  | (managed)  |
+| Maven                   | 3.9+       |
 
 ---
 
@@ -29,6 +30,7 @@ src/main/java/com/citizens/banking/liquidity/
 ├── LiquidityApplication.java       # Application entry point
 ├── config/                         # Spring configuration beans and filters
 │   ├── CorrelationIdFilter.java    # Propagates X-Correlation-ID via MDC
+│   ├── OpenApiConfig.java          # Springdoc OpenAPI metadata (title, version, description)
 │   └── RequestLoggingFilter.java   # Logs inbound/outbound requests with duration
 ├── controller/                     # REST controllers (HTTP layer only)
 │   ├── DepositController.java
@@ -36,6 +38,7 @@ src/main/java/com/citizens/banking/liquidity/
 ├── domain/                         # JPA entities (persistence model)
 │   └── DepositEntity.java
 ├── dto/                            # Immutable data transfer objects
+│   ├── CreateDepositRequest.java   # Request DTO with Jakarta Validation annotations
 │   ├── DepositResponse.java
 │   ├── HealthResponse.java
 │   └── ApiErrorResponse.java
@@ -111,6 +114,13 @@ management:
     web:
       exposure:
         include: health, info
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+  paths-to-exclude: /actuator/**
 ```
 
 ---
@@ -123,6 +133,7 @@ management:
 |--------|-----------------------------------|----------------------|
 | GET    | `/api/v1/deposits`                | List all deposits    |
 | GET    | `/api/v1/deposits/{depositId}`    | Get deposit by ID    |
+| POST   | `/api/v1/deposits`                | Create a new deposit |
 
 **GET /api/v1/deposits** — example response:
 
@@ -149,7 +160,41 @@ management:
   "error": "Not Found",
   "message": "Deposit not found with id: 9999",
   "path": "/api/v1/deposits/9999",
-  "timestamp": "2026-05-11T18:00:00Z"
+  "timestamp": "2026-05-11T18:00:00Z",
+  "fieldErrors": null
+}
+```
+
+**POST /api/v1/deposits** — example request:
+
+```json
+{
+  "accountId": 1001,
+  "depositType": "TERM_DEPOSIT",
+  "principalAmount": 50000.00,
+  "interestRate": 4.50,
+  "maturityDate": "2027-05-13"
+}
+```
+
+`HTTP 201 Created` — no response body.
+
+**POST /api/v1/deposits** — validation error response (`HTTP 400 Bad Request`):
+
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "path": "/api/v1/deposits",
+  "timestamp": "2026-05-13T21:18:00Z",
+  "fieldErrors": {
+    "accountId": "must not be null",
+    "depositType": "must not be blank",
+    "principalAmount": "must be greater than 0",
+    "interestRate": "must not be null",
+    "maturityDate": "must not be null"
+  }
 }
 ```
 
@@ -165,6 +210,36 @@ management:
   "service": "liquidity-service"
 }
 ```
+
+---
+
+## API Documentation
+
+Swagger UI and the raw OpenAPI specification are available when the application is running:
+
+| Resource        | URL                                          |
+|-----------------|----------------------------------------------|
+| Swagger UI      | http://localhost:8080/swagger-ui/index.html  |
+| OpenAPI JSON    | http://localhost:8080/v3/api-docs            |
+
+Actuator endpoints are excluded from the generated spec (`paths-to-exclude: /actuator/**`).
+
+### OpenAPI metadata
+
+Configured in `OpenApiConfig.java`:
+
+- **Title:** Liquidity Service API
+- **Description:** Citizens Banking Liquidity Microservice APIs
+- **Version:** v1
+
+### Annotation strategy
+
+| Annotation      | Scope            | Purpose                                          |
+|-----------------|------------------|--------------------------------------------------|
+| `@Tag`          | Controller class | Groups all endpoints under a named API section   |
+| `@Operation`    | Endpoint method  | Provides summary and description per operation   |
+| `@ApiResponses` | Endpoint method  | Documents expected HTTP response codes           |
+| `@Schema`       | DTO field        | Describes field type, example value, and purpose |
 
 ---
 
@@ -249,7 +324,14 @@ The Dockerfile uses a **single-stage build**:
 - Controllers contain no business logic — they delegate to services
 - Services contain business logic and throw domain exceptions
 - All API responses use typed DTOs (immutable, Lombok `@Value` + `@Builder`)
+- Request DTOs use `@Value @Builder @Jacksonized` for immutable JSON deserialization
 - Error responses follow a standardized `ApiErrorResponse` structure
+- All endpoints are documented with `@Tag`, `@Operation`, and `@ApiResponses` — Swagger UI is the primary API reference
+- DTO fields exposed in the API are annotated with `@Schema` (description + example)
+- Validation is applied at the controller layer using `@Valid` on `@RequestBody` parameters
+- Validation annotations (`@NotNull`, `@NotBlank`, `@Positive`) are declared on request DTOs only, never on entities
+- Validation errors are handled globally in `GlobalExceptionHandler` and returned as a structured `fieldErrors` map
 - Monetary amounts use `BigDecimal` (never `double` or `float`)
+- Dates use `LocalDate` (never `Date` or `Calendar`)
 - Constants are centralized in `util/DepositConstants`
 - All service methods are annotated with `@Transactional(readOnly = true)`

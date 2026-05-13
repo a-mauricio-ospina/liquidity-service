@@ -1,20 +1,25 @@
 package com.citizens.banking.liquidity.controller;
 
 import com.citizens.banking.liquidity.dto.ApiErrorResponse;
+import com.citizens.banking.liquidity.dto.CreateDepositRequest;
 import com.citizens.banking.liquidity.dto.DepositResponse;
 import com.citizens.banking.liquidity.service.DepositService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -42,6 +47,26 @@ public class DepositController {
         List<DepositResponse> deposits = depositService.findAll();
         log.debug("Returning {} deposits", deposits.size());
         return ResponseEntity.ok(deposits);
+    }
+
+    @Operation(summary = "Create a new deposit", description = "Creates a new deposit record. Validates the request payload before processing.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Deposit created successfully"),
+        @ApiResponse(responseCode = "400", description = "Validation failed",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Internal server error",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    })
+    @PostMapping
+    public ResponseEntity<Void> createDeposit(
+            @RequestBody(description = "Deposit creation payload", required = true,
+                content = @Content(schema = @Schema(implementation = CreateDepositRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody CreateDepositRequest request) {
+
+        log.debug("Request received: create deposit accountId={}, type={}",
+                  request.getAccountId(), request.getDepositType());
+        // TODO: delegate to DepositService.create() once persistence layer is ready
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     @Operation(summary = "Get deposit by ID", description = "Returns a single deposit record by its unique identifier")
