@@ -1,8 +1,8 @@
 # liquidity-service
 
 Citizens Banking microservice responsible for managing liquidity operations.
-This service exposes a REST API for deposit inquiries and is built following
-clean architecture and enterprise Spring Boot conventions.
+This service exposes a REST API for deposit inquiries, customer management, and account management.
+It is built following clean architecture and enterprise Spring Boot conventions.
 
 ---
 
@@ -33,21 +33,35 @@ src/main/java/com/citizens/banking/liquidity/
 │   ├── OpenApiConfig.java          # Springdoc OpenAPI metadata (title, version, description)
 │   └── RequestLoggingFilter.java   # Logs inbound/outbound requests with duration
 ├── controller/                     # REST controllers (HTTP layer only)
+│   ├── AccountController.java
+│   ├── CustomerController.java
 │   ├── DepositController.java
 │   └── HealthController.java
 ├── domain/                         # JPA entities (persistence model)
+│   ├── AccountEntity.java
+│   ├── CustomerEntity.java
 │   └── DepositEntity.java
 ├── dto/                            # Immutable data transfer objects
+│   ├── AccountResponse.java
+│   ├── ApiErrorResponse.java
+│   ├── CreateAccountRequest.java   # Request DTO with Jakarta Validation annotations
+│   ├── CreateCustomerRequest.java  # Request DTO with Jakarta Validation annotations
 │   ├── CreateDepositRequest.java   # Request DTO with Jakarta Validation annotations
+│   ├── CustomerResponse.java
 │   ├── DepositResponse.java
-│   ├── HealthResponse.java
-│   └── ApiErrorResponse.java
+│   └── HealthResponse.java
 ├── exception/                      # Domain exceptions and global handler
+│   ├── AccountNotFoundException.java
+│   ├── CustomerNotFoundException.java
 │   ├── DepositNotFoundException.java
 │   └── GlobalExceptionHandler.java
 ├── repository/                     # Spring Data JPA repositories
+│   ├── AccountRepository.java
+│   ├── CustomerRepository.java
 │   └── DepositRepository.java
 ├── service/                        # Business logic
+│   ├── AccountService.java
+│   ├── CustomerService.java
 │   └── DepositService.java
 └── util/                           # Constants and static helpers
     └── DepositConstants.java
@@ -125,7 +139,160 @@ springdoc:
 
 ---
 
+## Database Entities
+
+### Customer (`customer` table)
+
+| Column          | PostgreSQL Type | Java Type        | Constraints              |
+|-----------------|-----------------|------------------|--------------------------|
+| `customer_id`   | `BIGINT`        | `Long`           | PK, auto-generated       |
+| `customer_name` | `VARCHAR(255)`  | `String`         | NOT NULL                 |
+| `customer_type` | `VARCHAR(50)`   | `String`         | NOT NULL                 |
+| `status`        | `VARCHAR(20)`   | `String`         | NOT NULL                 |
+| `rm_id`         | `BIGINT`        | `Long`           | NOT NULL                 |
+| `channel`       | `VARCHAR(50)`   | `String`         | NOT NULL                 |
+| `region`        | `VARCHAR(50)`   | `String`         | NOT NULL                 |
+| `created_at`    | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                 |
+| `updated_at`    | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                 |
+
+### Account (`account` table)
+
+Each account belongs to a `Customer` via a Many-to-One relationship (`customer_id` FK).
+
+| Column           | PostgreSQL Type | Java Type        | Constraints              |
+|------------------|-----------------|------------------|--------------------------|
+| `account_id`     | `BIGINT`        | `Long`           | PK, auto-generated       |
+| `customer_id`    | `BIGINT`        | `CustomerEntity` | FK → `customer`, NOT NULL |
+| `account_number` | `VARCHAR(30)`   | `String`         | NOT NULL                 |
+| `account_type`   | `VARCHAR(50)`   | `String`         | NOT NULL                 |
+| `currency`       | `VARCHAR(3)`    | `String`         | NOT NULL, ISO-4217       |
+| `status`         | `VARCHAR(20)`   | `String`         | NOT NULL                 |
+| `effective_from` | `DATE`          | `LocalDate`      | NOT NULL                 |
+| `effective_till` | `DATE`          | `LocalDate`      | nullable                 |
+| `created_at`     | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                 |
+| `updated_at`     | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                 |
+
+### Deposit (`deposit` table)
+
+Each deposit belongs to an `Account` via a Many-to-One relationship (`account_id` FK).
+
+| Column           | PostgreSQL Type  | Java Type        | Constraints               |
+|------------------|-----------------|------------------|---------------------------|
+| `deposit_id`     | `BIGINT`        | `Long`           | PK, auto-generated        |
+| `account_id`     | `BIGINT`        | `AccountEntity`  | FK → `account`, NOT NULL  |
+| `dpf_ref_id`     | `VARCHAR(100)`  | `String`         | NOT NULL                  |
+| `deposit_amount` | `NUMERIC(18,2)` | `BigDecimal`     | NOT NULL                  |
+| `currency`       | `VARCHAR(3)`    | `String`         | NOT NULL, ISO-4217        |
+| `status`         | `VARCHAR(20)`   | `String`         | NOT NULL                  |
+| `created_at`     | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                  |
+| `updated_at`     | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                  |
+
+---
+
 ## API Endpoints
+
+### Customers
+
+| Method | Endpoint                            | Description            |
+|--------|-------------------------------------|------------------------|
+| GET    | `/api/v1/customers`                 | List all customers     |
+| GET    | `/api/v1/customers/{customerId}`    | Get customer by ID     |
+| POST   | `/api/v1/customers`                 | Create a new customer  |
+
+**GET /api/v1/customers** — example response:
+
+```json
+[
+  {
+    "customerId": 1,
+    "customerName": "Acme Corporation",
+    "customerType": "CORPORATE",
+    "status": "ACTIVE",
+    "rmId": 501,
+    "channel": "DIGITAL",
+    "region": "NORTHEAST",
+    "createdAt": "2026-05-14T11:00:00-05:00",
+    "updatedAt": "2026-05-14T11:00:00-05:00"
+  }
+]
+```
+
+**GET /api/v1/customers/99** — not found response:
+
+```json
+{
+  "status": 404,
+  "error": "Not Found",
+  "message": "Customer not found with id: 99",
+  "path": "/api/v1/customers/99",
+  "timestamp": "2026-05-14T16:00:00Z",
+  "fieldErrors": null
+}
+```
+
+**POST /api/v1/customers** — example request:
+
+```json
+{
+  "customerName": "Acme Corporation",
+  "customerType": "CORPORATE",
+  "status": "ACTIVE",
+  "rmId": 501,
+  "channel": "DIGITAL",
+  "region": "NORTHEAST"
+}
+```
+
+`HTTP 201 Created` — example response body:
+
+```json
+{
+  "customerId": 1,
+  "customerName": "Acme Corporation",
+  "customerType": "CORPORATE",
+  "status": "ACTIVE",
+  "rmId": 501,
+  "channel": "DIGITAL",
+  "region": "NORTHEAST",
+  "createdAt": "2026-05-14T11:00:00-05:00",
+  "updatedAt": "2026-05-14T11:00:00-05:00"
+}
+```
+
+**POST /api/v1/customers** — validation error response (`HTTP 400 Bad Request`):
+
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "path": "/api/v1/customers",
+  "timestamp": "2026-05-14T16:00:00Z",
+  "fieldErrors": {
+    "customerName": "must not be blank",
+    "customerType": "must not be blank",
+    "status": "must not be blank",
+    "rmId": "must not be null",
+    "channel": "must not be blank",
+    "region": "must not be blank"
+  }
+}
+```
+
+### Validation Rules — `CreateCustomerRequest`
+
+| Field          | Constraints                          |
+|----------------|--------------------------------------|
+| `customerName` | `@NotBlank`, `@Size(max = 255)`      |
+| `customerType` | `@NotBlank`, `@Size(max = 50)`       |
+| `status`       | `@NotBlank`, `@Size(max = 20)`       |
+| `rmId`         | `@NotNull`, `@Positive`              |
+| `channel`      | `@NotBlank`, `@Size(max = 50)`       |
+| `region`       | `@NotBlank`, `@Size(max = 50)`       |
+
+Validation errors are handled globally by `GlobalExceptionHandler` and returned as a structured `fieldErrors` map with `HTTP 400`.
+
+---
 
 ### Deposits
 
@@ -135,19 +302,21 @@ springdoc:
 | GET    | `/api/v1/deposits/{depositId}`    | Get deposit by ID    |
 | POST   | `/api/v1/deposits`                | Create a new deposit |
 
+Each deposit is linked to an existing `Account` via `accountId`. Creating a deposit with a non-existent `accountId` returns `HTTP 404`.
+
 **GET /api/v1/deposits** — example response:
 
 ```json
 [
   {
-    "depositId": 1001,
-    "accountId": 42,
-    "depositType": "FIXED_TERM",
-    "principalAmount": 10000.00,
-    "interestRate": 4.25,
-    "accruedInterest": 125.50,
-    "maturityDate": "2026-12-31",
-    "status": "ACTIVE"
+    "depositId": 100,
+    "accountId": 10,
+    "dpfRefId": "DPF-2026-00001",
+    "depositAmount": 50000.00,
+    "currency": "USD",
+    "status": "ACTIVE",
+    "createdAt": "2026-05-14T11:00:00-05:00",
+    "updatedAt": "2026-05-14T11:00:00-05:00"
   }
 ]
 ```
@@ -160,7 +329,7 @@ springdoc:
   "error": "Not Found",
   "message": "Deposit not found with id: 9999",
   "path": "/api/v1/deposits/9999",
-  "timestamp": "2026-05-11T18:00:00Z",
+  "timestamp": "2026-05-14T16:00:00Z",
   "fieldErrors": null
 }
 ```
@@ -169,15 +338,28 @@ springdoc:
 
 ```json
 {
-  "accountId": 1001,
-  "depositType": "TERM_DEPOSIT",
-  "principalAmount": 50000.00,
-  "interestRate": 4.50,
-  "maturityDate": "2027-05-13"
+  "accountId": 10,
+  "dpfRefId": "DPF-2026-00001",
+  "depositAmount": 50000.00,
+  "currency": "USD",
+  "status": "ACTIVE"
 }
 ```
 
-`HTTP 201 Created` — no response body.
+`HTTP 201 Created` — example response body:
+
+```json
+{
+  "depositId": 100,
+  "accountId": 10,
+  "dpfRefId": "DPF-2026-00001",
+  "depositAmount": 50000.00,
+  "currency": "USD",
+  "status": "ACTIVE",
+  "createdAt": "2026-05-14T11:00:00-05:00",
+  "updatedAt": "2026-05-14T11:00:00-05:00"
+}
+```
 
 **POST /api/v1/deposits** — validation error response (`HTTP 400 Bad Request`):
 
@@ -187,16 +369,133 @@ springdoc:
   "error": "Bad Request",
   "message": "Validation failed",
   "path": "/api/v1/deposits",
-  "timestamp": "2026-05-13T21:18:00Z",
+  "timestamp": "2026-05-14T16:00:00Z",
   "fieldErrors": {
     "accountId": "must not be null",
-    "depositType": "must not be blank",
-    "principalAmount": "must be greater than 0",
-    "interestRate": "must not be null",
-    "maturityDate": "must not be null"
+    "dpfRefId": "must not be blank",
+    "depositAmount": "must be greater than 0",
+    "currency": "must not be blank",
+    "status": "must not be blank"
   }
 }
 ```
+
+### Validation Rules — `CreateDepositRequest`
+
+| Field           | Constraints                        |
+|-----------------|------------------------------------|
+| `accountId`     | `@NotNull`, `@Positive`            |
+| `dpfRefId`      | `@NotBlank`, `@Size(max = 100)`    |
+| `depositAmount` | `@NotNull`, `@Positive`            |
+| `currency`      | `@NotBlank`, `@Size(max = 3)`      |
+| `status`        | `@NotBlank`, `@Size(max = 20)`     |
+
+### Accounts
+
+| Method | Endpoint                          | Description          |
+|--------|-----------------------------------|----------------------|
+| GET    | `/api/v1/accounts`                | List all accounts    |
+| GET    | `/api/v1/accounts/{accountId}`    | Get account by ID    |
+| POST   | `/api/v1/accounts`                | Create a new account |
+
+Each account is linked to an existing `Customer` via `customerId`. Creating an account with a non-existent `customerId` returns `HTTP 404`.
+
+**GET /api/v1/accounts** — example response:
+
+```json
+[
+  {
+    "accountId": 10,
+    "customerId": 1,
+    "accountNumber": "ACC-0001-2026",
+    "accountType": "CHECKING",
+    "currency": "USD",
+    "status": "ACTIVE",
+    "effectiveFrom": "2026-01-01",
+    "effectiveTill": null,
+    "createdAt": "2026-05-14T11:00:00-05:00",
+    "updatedAt": "2026-05-14T11:00:00-05:00"
+  }
+]
+```
+
+**GET /api/v1/accounts/99** — not found response:
+
+```json
+{
+  "status": 404,
+  "error": "Not Found",
+  "message": "Account not found with id: 99",
+  "path": "/api/v1/accounts/99",
+  "timestamp": "2026-05-14T16:00:00Z",
+  "fieldErrors": null
+}
+```
+
+**POST /api/v1/accounts** — example request:
+
+```json
+{
+  "customerId": 1,
+  "accountNumber": "ACC-0001-2026",
+  "accountType": "CHECKING",
+  "currency": "USD",
+  "status": "ACTIVE",
+  "effectiveFrom": "2026-01-01",
+  "effectiveTill": null
+}
+```
+
+`HTTP 201 Created` — example response body:
+
+```json
+{
+  "accountId": 10,
+  "customerId": 1,
+  "accountNumber": "ACC-0001-2026",
+  "accountType": "CHECKING",
+  "currency": "USD",
+  "status": "ACTIVE",
+  "effectiveFrom": "2026-01-01",
+  "effectiveTill": null,
+  "createdAt": "2026-05-14T11:00:00-05:00",
+  "updatedAt": "2026-05-14T11:00:00-05:00"
+}
+```
+
+**POST /api/v1/accounts** — validation error response (`HTTP 400 Bad Request`):
+
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "path": "/api/v1/accounts",
+  "timestamp": "2026-05-14T16:00:00Z",
+  "fieldErrors": {
+    "customerId": "must not be null",
+    "accountNumber": "must not be blank",
+    "accountType": "must not be blank",
+    "currency": "must not be blank",
+    "status": "must not be blank",
+    "effectiveFrom": "must not be null"
+  }
+}
+```
+
+### Validation Rules — `CreateAccountRequest`
+
+| Field           | Constraints                        |
+|-----------------|------------------------------------|
+| `customerId`    | `@NotNull`, `@Positive`            |
+| `accountNumber` | `@NotBlank`, `@Size(max = 30)`     |
+| `accountType`   | `@NotBlank`, `@Size(max = 50)`     |
+| `currency`      | `@NotBlank`, `@Size(max = 3)`      |
+| `status`        | `@NotBlank`, `@Size(max = 20)`     |
+| `effectiveFrom` | `@NotNull`                         |
+| `effectiveTill` | optional, no constraint            |
+
+---
 
 ### Health (custom)
 

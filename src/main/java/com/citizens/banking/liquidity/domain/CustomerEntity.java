@@ -6,7 +6,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
 @Getter
@@ -14,29 +13,31 @@ import java.time.OffsetDateTime;
 @AllArgsConstructor
 @Builder
 @Entity
-@Table(name = "deposit")
-public class DepositEntity {
+@Table(name = "customer")
+public class CustomerEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "deposit_id")
-    private Long depositId;
+    @Column(name = "customer_id")
+    private Long customerId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private AccountEntity account;
+    @Column(name = "customer_name", nullable = false, length = 255)
+    private String customerName;
 
-    @Column(name = "dpf_ref_id", nullable = false, length = 100)
-    private String dpfRefId;
-
-    @Column(name = "deposit_amount", nullable = false, precision = 18, scale = 2)
-    private BigDecimal depositAmount;
-
-    @Column(name = "currency", nullable = false, length = 3)
-    private String currency;
+    @Column(name = "customer_type", nullable = false, length = 50)
+    private String customerType;
 
     @Column(name = "status", nullable = false, length = 20)
     private String status;
+
+    @Column(name = "rm_id", nullable = false)
+    private Long rmId;
+
+    @Column(name = "channel", nullable = false, length = 50)
+    private String channel;
+
+    @Column(name = "region", nullable = false, length = 50)
+    private String region;
 
     @Column(name = "created_at", nullable = false, columnDefinition = "TIMESTAMPTZ")
     private OffsetDateTime createdAt;

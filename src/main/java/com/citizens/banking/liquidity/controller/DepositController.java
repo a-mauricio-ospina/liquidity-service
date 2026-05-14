@@ -49,26 +49,6 @@ public class DepositController {
         return ResponseEntity.ok(deposits);
     }
 
-    @Operation(summary = "Create a new deposit", description = "Creates a new deposit record. Validates the request payload before processing.")
-    @ApiResponses({
-        @ApiResponse(responseCode = "201", description = "Deposit created successfully"),
-        @ApiResponse(responseCode = "400", description = "Validation failed",
-            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
-        @ApiResponse(responseCode = "500", description = "Internal server error",
-            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
-    })
-    @PostMapping
-    public ResponseEntity<Void> createDeposit(
-            @RequestBody(description = "Deposit creation payload", required = true,
-                content = @Content(schema = @Schema(implementation = CreateDepositRequest.class)))
-            @Valid @org.springframework.web.bind.annotation.RequestBody CreateDepositRequest request) {
-
-        log.debug("Request received: create deposit accountId={}, type={}",
-                  request.getAccountId(), request.getDepositType());
-        // TODO: delegate to DepositService.create() once persistence layer is ready
-        return ResponseEntity.status(HttpStatus.CREATED).build();
-    }
-
     @Operation(summary = "Get deposit by ID", description = "Returns a single deposit record by its unique identifier")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Deposit found",
@@ -86,5 +66,28 @@ public class DepositController {
         DepositResponse deposit = depositService.findById(depositId);
         log.debug("Returning deposit depositId={}", depositId);
         return ResponseEntity.ok(deposit);
+    }
+
+    @Operation(summary = "Create a new deposit", description = "Creates a new deposit record linked to an existing account. Validates the request payload before processing.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Deposit created successfully",
+            content = @Content(schema = @Schema(implementation = DepositResponse.class))),
+        @ApiResponse(responseCode = "400", description = "Validation failed",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "404", description = "Account not found",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class))),
+        @ApiResponse(responseCode = "500", description = "Internal server error",
+            content = @Content(schema = @Schema(implementation = ApiErrorResponse.class)))
+    })
+    @PostMapping
+    public ResponseEntity<DepositResponse> createDeposit(
+            @RequestBody(description = "Deposit creation payload", required = true,
+                content = @Content(schema = @Schema(implementation = CreateDepositRequest.class)))
+            @Valid @org.springframework.web.bind.annotation.RequestBody CreateDepositRequest request) {
+
+        log.debug("Request received: create deposit accountId={}, dpfRefId={}", request.getAccountId(), request.getDpfRefId());
+        DepositResponse created = depositService.create(request);
+        log.debug("Deposit created depositId={}", created.getDepositId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 }

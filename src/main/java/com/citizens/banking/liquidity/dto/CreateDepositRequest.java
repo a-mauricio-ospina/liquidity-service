@@ -4,12 +4,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.Builder;
 import lombok.Value;
 import lombok.extern.jackson.Jacksonized;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 
 @Schema(description = "Request payload to create a new deposit")
 @Value
@@ -18,24 +18,27 @@ import java.time.LocalDate;
 public class CreateDepositRequest {
 
     @NotNull
-    @Schema(description = "Account identifier associated with this deposit", example = "1001")
+    @Positive
+    @Schema(description = "Account identifier associated with this deposit", example = "10")
     Long accountId;
 
     @NotBlank
-    @Schema(description = "Type of deposit product", example = "TERM_DEPOSIT")
-    String depositType;
+    @Size(max = 100)
+    @Schema(description = "DPF reference identifier", example = "DPF-2026-00001")
+    String dpfRefId;
 
     @NotNull
     @Positive
-    @Schema(description = "Principal amount in USD", example = "50000.00")
-    BigDecimal principalAmount;
+    @Schema(description = "Deposit amount", example = "50000.00")
+    BigDecimal depositAmount;
 
-    @NotNull
-    @Positive
-    @Schema(description = "Annual interest rate as a percentage", example = "4.50")
-    BigDecimal interestRate;
+    @NotBlank
+    @Size(max = 3)
+    @Schema(description = "ISO-4217 currency code", example = "USD")
+    String currency;
 
-    @NotNull
-    @Schema(description = "Date on which the deposit matures", example = "2027-05-13")
-    LocalDate maturityDate;
+    @NotBlank
+    @Size(max = 20)
+    @Schema(description = "Current status of the deposit", example = "ACTIVE")
+    String status;
 }
