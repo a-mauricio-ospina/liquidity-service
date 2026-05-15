@@ -1,6 +1,6 @@
 package com.citizens.banking.liquidity.exception;
 
-import com.citizens.banking.liquidity.dto.ApiErrorResponse;
+import com.citizens.banking.liquidity.exception.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;

@@ -23,62 +23,147 @@ It is built following clean architecture and enterprise Spring Boot conventions.
 
 ---
 
+## Architecture
+
+This service follows a **modular clean architecture** style, organized by business domain. Each domain (`deposit`, `account`, `customer`) is self-contained with clear layered responsibilities.
+
+### Architectural layers
+
+| Layer | Package | Responsibility |
+|-------|---------|----------------|
+| **API** | `{domain}/api` | REST controllers — HTTP handling only, no business logic |
+| **Orchestration** | `deposit/application/orchestration` | Cross-domain coordination for deposit workflows |
+| **Application / Service** | `{domain}/application/service` | Business logic, transactions, domain exceptions |
+| **Domain Model** | `{domain}/domain/model` | JPA entities — persistence model |
+| **Infrastructure / Repository** | `{domain}/infrastructure/repository` | Spring Data JPA repositories |
+| **Infrastructure / Persistence** | `{domain}/infrastructure/persistence` | Placeholder for future JPA adapters |
+| **DTO** | `{domain}/dto/request` + `{domain}/dto/response` | Immutable data transfer objects |
+| **Mapper** | `deposit/mapper` | Placeholder for future entity↔DTO mappers |
+| **Exception** | `exception/` | Domain exceptions, global handler, `ApiErrorResponse` |
+| **Config** | `config/` | Spring filters, OpenAPI config |
+| **Common** | `common/` | Cross-cutting concerns (`HealthController`, `HealthResponse`) |
+
+### Deposit workflow — orchestration layer
+
+The `DepositController` delegates all operations to `DepositWorkflowOrchestrator`, which coordinates between `DepositService`, `AccountService`, and `CustomerService`. This makes the orchestrator the single entry point for deposit flows and the natural extension point for future pre/post processing (e.g. customer limit checks, audit events).
+
+```
+HTTP Request
+    │
+    ▼
+DepositController              ← api: handles HTTP, validation
+    │
+    ▼
+DepositWorkflowOrchestrator    ← orchestration: single entry point,
+    │                             coordinates cross-domain services
+    ├──────────────────────────────────────┐
+    ▼                                      ▼
+DepositService              AccountService / CustomerService
+    │                                      │
+    ▼                                      ▼
+DepositRepository           AccountRepository / CustomerRepository
+    │                                      │
+    ▼                                      ▼
+deposit/domain/model         account + customer domain models
+```
+
+---
+
 ## Package Structure
 
 ```
 src/main/java/com/citizens/banking/liquidity/
-├── LiquidityApplication.java       # Application entry point
-├── config/                         # Spring configuration beans and filters
-│   ├── CorrelationIdFilter.java    # Propagates X-Correlation-ID via MDC
-│   ├── OpenApiConfig.java          # Springdoc OpenAPI metadata (title, version, description)
-│   └── RequestLoggingFilter.java   # Logs inbound/outbound requests with duration
-├── controller/                     # REST controllers (HTTP layer only)
-│   ├── AccountController.java
-│   ├── CustomerController.java
-│   ├── DepositController.java
-│   ├── DepositRateController.java
-│   ├── DepositSubAccountController.java
-│   └── HealthController.java
-├── domain/                         # JPA entities (persistence model)
-│   ├── AccountEntity.java
-│   ├── CustomerEntity.java
-│   ├── DepositEntity.java
-│   ├── DepositRateEntity.java
-│   └── DepositSubAccountEntity.java
-├── dto/                            # Immutable data transfer objects
-│   ├── AccountResponse.java
-│   ├── ApiErrorResponse.java
-│   ├── CreateAccountRequest.java            # Request DTO with Jakarta Validation annotations
-│   ├── CreateCustomerRequest.java           # Request DTO with Jakarta Validation annotations
-│   ├── CreateDepositRateRequest.java        # Request DTO with Jakarta Validation annotations
-│   ├── CreateDepositRequest.java            # Request DTO with Jakarta Validation annotations
-│   ├── CreateDepositSubAccountRequest.java  # Request DTO with Jakarta Validation annotations
-│   ├── CustomerResponse.java
-│   ├── DepositRateResponse.java
-│   ├── DepositResponse.java
-│   ├── DepositSubAccountResponse.java
+├── LiquidityApplication.java
+│
+├── common/                                   # Cross-cutting concerns
+│   ├── HealthController.java
 │   └── HealthResponse.java
-├── exception/                      # Domain exceptions and global handler
+│
+├── config/                                   # Spring configuration and filters
+│   ├── CorrelationIdFilter.java              # Propagates X-Correlation-ID via MDC
+│   ├── OpenApiConfig.java                    # Springdoc OpenAPI metadata
+│   └── RequestLoggingFilter.java             # Logs inbound/outbound requests with duration
+│
+├── security/                                 # Placeholder for future Spring Security config
+│
+├── exception/                                # Domain exceptions and global handler
+│   ├── ApiErrorResponse.java
 │   ├── AccountNotFoundException.java
 │   ├── CustomerNotFoundException.java
 │   ├── DepositNotFoundException.java
 │   ├── DepositRateNotFoundException.java
 │   ├── DepositSubAccountNotFoundException.java
 │   └── GlobalExceptionHandler.java
-├── repository/                     # Spring Data JPA repositories
-│   ├── AccountRepository.java
-│   ├── CustomerRepository.java
-│   ├── DepositRateRepository.java
-│   ├── DepositRepository.java
-│   └── DepositSubAccountRepository.java
-├── service/                        # Business logic
-│   ├── AccountService.java
-│   ├── CustomerService.java
-│   ├── DepositRateService.java
-│   ├── DepositService.java
-│   └── DepositSubAccountService.java
-└── util/                           # Constants and static helpers
-    └── DepositConstants.java
+│
+├── deposit/
+│   ├── api/
+│   │   ├── DepositController.java            # Delegates to DepositWorkflowOrchestrator
+│   │   ├── DepositRateController.java
+│   │   └── DepositSubAccountController.java
+│   ├── application/
+│   │   ├── orchestration/
+│   │   │   └── DepositWorkflowOrchestrator.java  # Coordinates deposit, account, customer services
+│   │   └── service/
+│   │       ├── DepositService.java
+│   │       ├── DepositRateService.java
+│   │       └── DepositSubAccountService.java
+│   ├── domain/
+│   │   └── model/
+│   │       ├── DepositEntity.java
+│   │       ├── DepositRateEntity.java
+│   │       └── DepositSubAccountEntity.java
+│   ├── infrastructure/
+│   │   ├── persistence/                      # Placeholder for future JPA adapters
+│   │   └── repository/
+│   │       ├── DepositRepository.java
+│   │       ├── DepositRateRepository.java
+│   │       └── DepositSubAccountRepository.java
+│   ├── dto/
+│   │   ├── request/
+│   │   │   ├── CreateDepositRequest.java
+│   │   │   ├── CreateDepositRateRequest.java
+│   │   │   └── CreateDepositSubAccountRequest.java
+│   │   └── response/
+│   │       ├── DepositResponse.java
+│   │       ├── DepositRateResponse.java
+│   │       └── DepositSubAccountResponse.java
+│   ├── common/
+│   │   └── DepositConstants.java
+│   └── mapper/                               # Placeholder for future entity↔DTO mappers
+│
+├── customer/
+│   ├── api/
+│   │   └── CustomerController.java
+│   ├── application/
+│   │   └── service/
+│   │       └── CustomerService.java
+│   ├── domain/
+│   │   └── model/
+│   │       └── CustomerEntity.java
+│   ├── infrastructure/
+│   │   ├── persistence/                      # Placeholder
+│   │   └── repository/
+│   │       └── CustomerRepository.java
+│   └── dto/
+│       ├── CreateCustomerRequest.java
+│       └── CustomerResponse.java
+│
+└── account/
+    ├── api/
+    │   └── AccountController.java
+    ├── application/
+    │   └── service/
+    │       └── AccountService.java
+    ├── domain/
+    │   └── model/
+    │       └── AccountEntity.java
+    ├── infrastructure/
+    │   ├── persistence/                      # Placeholder
+    │   └── repository/
+    │       └── AccountRepository.java
+    └── dto/
+        ├── CreateAccountRequest.java
+        └── AccountResponse.java
 ```
 
 ---
@@ -846,11 +931,12 @@ The Dockerfile uses a **single-stage build**:
 
 ## Project Conventions
 
-- Controllers contain no business logic — they delegate to services
+- Controllers contain no business logic — they delegate to services or the orchestrator
+- The `DepositWorkflowOrchestrator` is the single entry point for all deposit API calls; it coordinates across `DepositService`, `AccountService`, and `CustomerService`
 - Services contain business logic and throw domain exceptions
 - All API responses use typed DTOs (immutable, Lombok `@Value` + `@Builder`)
 - Request DTOs use `@Value @Builder @Jacksonized` for immutable JSON deserialization
-- Error responses follow a standardized `ApiErrorResponse` structure
+- Error responses follow a standardized `ApiErrorResponse` structure (`exception` package)
 - All endpoints are documented with `@Tag`, `@Operation`, and `@ApiResponses` — Swagger UI is the primary API reference
 - DTO fields exposed in the API are annotated with `@Schema` (description + example)
 - Validation is applied at the controller layer using `@Valid` on `@RequestBody` parameters
@@ -858,5 +944,5 @@ The Dockerfile uses a **single-stage build**:
 - Validation errors are handled globally in `GlobalExceptionHandler` and returned as a structured `fieldErrors` map
 - Monetary amounts use `BigDecimal` (never `double` or `float`)
 - Dates use `LocalDate` (never `Date` or `Calendar`)
-- Constants are centralized in `util/DepositConstants`
-- All service methods are annotated with `@Transactional(readOnly = true)`
+- Domain constants are centralized in `deposit/common/DepositConstants`
+- All service read methods are annotated with `@Transactional(readOnly = true)`
