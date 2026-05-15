@@ -36,33 +36,54 @@ src/main/java/com/citizens/banking/liquidity/
 │   ├── AccountController.java
 │   ├── CustomerController.java
 │   ├── DepositController.java
-│   └── HealthController.java
+│   ├── DepositRateController.java
+│   ├── DepositSubAccountController.java
+│   ├── HealthController.java
+│   └── MarketRateVersionController.java
 ├── domain/                         # JPA entities (persistence model)
 │   ├── AccountEntity.java
 │   ├── CustomerEntity.java
-│   └── DepositEntity.java
+│   ├── DepositEntity.java
+│   ├── DepositRateEntity.java
+│   ├── DepositSubAccountEntity.java
+│   └── MarketRateVersionEntity.java
 ├── dto/                            # Immutable data transfer objects
 │   ├── AccountResponse.java
 │   ├── ApiErrorResponse.java
-│   ├── CreateAccountRequest.java   # Request DTO with Jakarta Validation annotations
-│   ├── CreateCustomerRequest.java  # Request DTO with Jakarta Validation annotations
-│   ├── CreateDepositRequest.java   # Request DTO with Jakarta Validation annotations
+│   ├── CreateAccountRequest.java            # Request DTO with Jakarta Validation annotations
+│   ├── CreateCustomerRequest.java           # Request DTO with Jakarta Validation annotations
+│   ├── CreateDepositRateRequest.java        # Request DTO with Jakarta Validation annotations
+│   ├── CreateDepositRequest.java            # Request DTO with Jakarta Validation annotations
+│   ├── CreateDepositSubAccountRequest.java  # Request DTO with Jakarta Validation annotations
+│   ├── CreateMarketRateVersionRequest.java  # Request DTO with Jakarta Validation annotations
 │   ├── CustomerResponse.java
+│   ├── DepositRateResponse.java
 │   ├── DepositResponse.java
-│   └── HealthResponse.java
+│   ├── DepositSubAccountResponse.java
+│   ├── HealthResponse.java
+│   └── MarketRateVersionResponse.java
 ├── exception/                      # Domain exceptions and global handler
 │   ├── AccountNotFoundException.java
 │   ├── CustomerNotFoundException.java
 │   ├── DepositNotFoundException.java
-│   └── GlobalExceptionHandler.java
+│   ├── DepositRateNotFoundException.java
+│   ├── DepositSubAccountNotFoundException.java
+│   ├── GlobalExceptionHandler.java
+│   └── MarketRateVersionNotFoundException.java
 ├── repository/                     # Spring Data JPA repositories
 │   ├── AccountRepository.java
 │   ├── CustomerRepository.java
-│   └── DepositRepository.java
+│   ├── DepositRateRepository.java
+│   ├── DepositRepository.java
+│   ├── DepositSubAccountRepository.java
+│   └── MarketRateVersionRepository.java
 ├── service/                        # Business logic
 │   ├── AccountService.java
 │   ├── CustomerService.java
-│   └── DepositService.java
+│   ├── DepositRateService.java
+│   ├── DepositService.java
+│   ├── DepositSubAccountService.java
+│   └── MarketRateVersionService.java
 └── util/                           # Constants and static helpers
     └── DepositConstants.java
 ```
@@ -186,6 +207,49 @@ Each deposit belongs to an `Account` via a Many-to-One relationship (`account_id
 | `status`         | `VARCHAR(20)`   | `String`         | NOT NULL                  |
 | `created_at`     | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                  |
 | `updated_at`     | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                  |
+
+### DepositSubAccount (`deposit_sub_account` table)
+
+Each deposit sub-account belongs to a `Deposit` via a Many-to-One relationship (`deposit_id` FK).
+
+| Column                    | PostgreSQL Type  | Java Type        | Constraints               |
+|---------------------------|-----------------|------------------|---------------------------|
+| `deposit_sub_account_id`  | `BIGINT`        | `Long`           | PK, auto-generated        |
+| `deposit_id`              | `BIGINT`        | `DepositEntity`  | FK → `deposit`, NOT NULL  |
+| `party_name`              | `VARCHAR(255)`  | `String`         | NOT NULL                  |
+| `share`                   | `NUMERIC(5,2)`  | `BigDecimal`     | NOT NULL                  |
+| `rate`                    | `NUMERIC(18,2)` | `BigDecimal`     | NOT NULL                  |
+| `created_at`              | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                  |
+| `updated_at`              | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                  |
+
+### MarketRateVersion (`market_rate_version` table)
+
+Standalone entity — no foreign keys to other tables. Intended to hold versioned market rate snapshots for future use by rate-linked entities.
+
+| Column            | PostgreSQL Type  | Java Type        | Constraints        |
+|-------------------|-----------------|------------------|--------------------|
+| `rate_version_id` | `BIGINT`        | `Long`           | PK, auto-generated |
+| `base_rate`       | `NUMERIC(18,2)` | `BigDecimal`     | NOT NULL           |
+| `spread`          | `NUMERIC(18,2)` | `BigDecimal`     | NOT NULL           |
+| `all_in_rate`     | `NUMERIC(18,2)` | `BigDecimal`     | NOT NULL           |
+| `effective_from`  | `DATE`          | `LocalDate`      | NOT NULL           |
+| `effective_till`  | `DATE`          | `LocalDate`      | nullable           |
+| `created_at`      | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL           |
+| `updated_at`      | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL           |
+
+### DepositRate (`deposit_rate` table)
+
+Each deposit rate links a `Deposit` with a `MarketRateVersion` via two Many-to-One relationships.
+
+| Column            | PostgreSQL Type  | Java Type                  | Constraints                              |
+|-------------------|-----------------|----------------------------|------------------------------------------|
+| `deposit_rate_id` | `BIGINT`        | `Long`                     | PK, auto-generated                       |
+| `deposit_id`      | `BIGINT`        | `DepositEntity`            | FK → `deposit`, NOT NULL                 |
+| `rate_version_id` | `BIGINT`        | `MarketRateVersionEntity`  | FK → `market_rate_version`, NOT NULL     |
+| `all_in_rate`     | `NUMERIC(18,2)` | `BigDecimal`               | NOT NULL                                 |
+| `status`          | `VARCHAR(20)`   | `String`                   | NOT NULL                                 |
+| `created_at`      | `TIMESTAMPTZ`   | `OffsetDateTime`           | NOT NULL                                 |
+| `updated_at`      | `TIMESTAMPTZ`   | `OffsetDateTime`           | NOT NULL                                 |
 
 ---
 
@@ -494,6 +558,289 @@ Each account is linked to an existing `Customer` via `customerId`. Creating an a
 | `status`        | `@NotBlank`, `@Size(max = 20)`     |
 | `effectiveFrom` | `@NotNull`                         |
 | `effectiveTill` | optional, no constraint            |
+
+---
+
+### DepositSubAccounts
+
+| Method | Endpoint                                              | Description                    |
+|--------|-------------------------------------------------------|--------------------------------|
+| GET    | `/api/v1/deposit-sub-accounts`                        | List all deposit sub-accounts  |
+| GET    | `/api/v1/deposit-sub-accounts/{depositSubAccountId}`  | Get deposit sub-account by ID  |
+| POST   | `/api/v1/deposit-sub-accounts`                        | Create a new deposit sub-account |
+
+Each deposit sub-account is linked to an existing `Deposit` via `depositId`. Creating a deposit sub-account with a non-existent `depositId` returns `HTTP 404`.
+
+**GET /api/v1/deposit-sub-accounts** — example response:
+
+```json
+[
+  {
+    "depositSubAccountId": 200,
+    "depositId": 100,
+    "partyName": "John Doe",
+    "share": 50.00,
+    "rate": 4.25,
+    "createdAt": "2026-05-15T09:00:00-05:00",
+    "updatedAt": "2026-05-15T09:00:00-05:00"
+  }
+]
+```
+
+**GET /api/v1/deposit-sub-accounts/99** — not found response:
+
+```json
+{
+  "status": 404,
+  "error": "Not Found",
+  "message": "DepositSubAccount not found with id: 99",
+  "path": "/api/v1/deposit-sub-accounts/99",
+  "timestamp": "2026-05-15T14:00:00Z",
+  "fieldErrors": null
+}
+```
+
+**POST /api/v1/deposit-sub-accounts** — example request:
+
+```json
+{
+  "depositId": 100,
+  "partyName": "John Doe",
+  "share": 50.00,
+  "rate": 4.25
+}
+```
+
+`HTTP 201 Created` — example response body:
+
+```json
+{
+  "depositSubAccountId": 200,
+  "depositId": 100,
+  "partyName": "John Doe",
+  "share": 50.00,
+  "rate": 4.25,
+  "createdAt": "2026-05-15T09:00:00-05:00",
+  "updatedAt": "2026-05-15T09:00:00-05:00"
+}
+```
+
+**POST /api/v1/deposit-sub-accounts** — validation error response (`HTTP 400 Bad Request`):
+
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "path": "/api/v1/deposit-sub-accounts",
+  "timestamp": "2026-05-15T14:00:00Z",
+  "fieldErrors": {
+    "depositId": "must not be null",
+    "partyName": "must not be blank",
+    "share": "must not be null",
+    "rate": "must not be null"
+  }
+}
+```
+
+### Validation Rules — `CreateDepositSubAccountRequest`
+
+| Field       | Constraints                        |
+|-------------|------------------------------------|
+| `depositId` | `@NotNull`, `@Positive`            |
+| `partyName` | `@NotBlank`, `@Size(max = 255)`    |
+| `share`     | `@NotNull`, `@Positive`            |
+| `rate`      | `@NotNull`, `@Positive`            |
+
+---
+
+### MarketRateVersions
+
+| Method | Endpoint                                       | Description                      |
+|--------|------------------------------------------------|----------------------------------|
+| GET    | `/api/v1/market-rate-versions`                 | List all market rate versions    |
+| GET    | `/api/v1/market-rate-versions/{rateVersionId}` | Get market rate version by ID    |
+| POST   | `/api/v1/market-rate-versions`                 | Create a new market rate version |
+
+Standalone entity — no parent validation required. `effectiveTill` is optional.
+
+**GET /api/v1/market-rate-versions** — example response:
+
+```json
+[
+  {
+    "rateVersionId": 1,
+    "baseRate": 4.00,
+    "spread": 0.25,
+    "allInRate": 4.25,
+    "effectiveFrom": "2026-01-01",
+    "effectiveTill": null,
+    "createdAt": "2026-05-15T09:00:00-05:00",
+    "updatedAt": "2026-05-15T09:00:00-05:00"
+  }
+]
+```
+
+**GET /api/v1/market-rate-versions/99** — not found response:
+
+```json
+{
+  "status": 404,
+  "error": "Not Found",
+  "message": "MarketRateVersion not found with id: 99",
+  "path": "/api/v1/market-rate-versions/99",
+  "timestamp": "2026-05-15T14:00:00Z",
+  "fieldErrors": null
+}
+```
+
+**POST /api/v1/market-rate-versions** — example request:
+
+```json
+{
+  "baseRate": 4.00,
+  "spread": 0.25,
+  "allInRate": 4.25,
+  "effectiveFrom": "2026-01-01",
+  "effectiveTill": null
+}
+```
+
+`HTTP 201 Created` — example response body:
+
+```json
+{
+  "rateVersionId": 1,
+  "baseRate": 4.00,
+  "spread": 0.25,
+  "allInRate": 4.25,
+  "effectiveFrom": "2026-01-01",
+  "effectiveTill": null,
+  "createdAt": "2026-05-15T09:00:00-05:00",
+  "updatedAt": "2026-05-15T09:00:00-05:00"
+}
+```
+
+**POST /api/v1/market-rate-versions** — validation error response (`HTTP 400 Bad Request`):
+
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "path": "/api/v1/market-rate-versions",
+  "timestamp": "2026-05-15T14:00:00Z",
+  "fieldErrors": {
+    "baseRate": "must not be null",
+    "spread": "must be greater than 0",
+    "allInRate": "must not be null",
+    "effectiveFrom": "must not be null"
+  }
+}
+```
+
+### Validation Rules — `CreateMarketRateVersionRequest`
+
+| Field           | Constraints             |
+|-----------------|-------------------------|
+| `baseRate`      | `@NotNull`, `@Positive` |
+| `spread`        | `@NotNull`, `@Positive` |
+| `allInRate`     | `@NotNull`, `@Positive` |
+| `effectiveFrom` | `@NotNull`              |
+| `effectiveTill` | optional, no constraint |
+
+---
+
+### DepositRates
+
+| Method | Endpoint                               | Description              |
+|--------|----------------------------------------|--------------------------|
+| GET    | `/api/v1/deposit-rates`                | List all deposit rates   |
+| GET    | `/api/v1/deposit-rates/{depositRateId}`| Get deposit rate by ID   |
+| POST   | `/api/v1/deposit-rates`                | Create a new deposit rate|
+
+Each deposit rate links an existing `Deposit` and an existing `MarketRateVersion`. Creating a deposit rate with a non-existent `depositId` or `rateVersionId` returns `HTTP 404`.
+
+**GET /api/v1/deposit-rates** — example response:
+
+```json
+[
+  {
+    "depositRateId": 500,
+    "depositId": 100,
+    "rateVersionId": 1,
+    "allInRate": 4.25,
+    "status": "ACTIVE",
+    "createdAt": "2026-05-15T09:00:00-05:00",
+    "updatedAt": "2026-05-15T09:00:00-05:00"
+  }
+]
+```
+
+**GET /api/v1/deposit-rates/99** — not found response:
+
+```json
+{
+  "status": 404,
+  "error": "Not Found",
+  "message": "DepositRate not found with id: 99",
+  "path": "/api/v1/deposit-rates/99",
+  "timestamp": "2026-05-15T14:00:00Z",
+  "fieldErrors": null
+}
+```
+
+**POST /api/v1/deposit-rates** — example request:
+
+```json
+{
+  "depositId": 100,
+  "rateVersionId": 1,
+  "allInRate": 4.25,
+  "status": "ACTIVE"
+}
+```
+
+`HTTP 201 Created` — example response body:
+
+```json
+{
+  "depositRateId": 500,
+  "depositId": 100,
+  "rateVersionId": 1,
+  "allInRate": 4.25,
+  "status": "ACTIVE",
+  "createdAt": "2026-05-15T09:00:00-05:00",
+  "updatedAt": "2026-05-15T09:00:00-05:00"
+}
+```
+
+**POST /api/v1/deposit-rates** — validation error response (`HTTP 400 Bad Request`):
+
+```json
+{
+  "status": 400,
+  "error": "Bad Request",
+  "message": "Validation failed",
+  "path": "/api/v1/deposit-rates",
+  "timestamp": "2026-05-15T14:00:00Z",
+  "fieldErrors": {
+    "depositId": "must not be null",
+    "rateVersionId": "must not be null",
+    "allInRate": "must be greater than 0",
+    "status": "must not be blank"
+  }
+}
+```
+
+### Validation Rules — `CreateDepositRateRequest`
+
+| Field           | Constraints                    |
+|-----------------|--------------------------------|
+| `depositId`     | `@NotNull`, `@Positive`        |
+| `rateVersionId` | `@NotNull`, `@Positive`        |
+| `allInRate`     | `@NotNull`, `@Positive`        |
+| `status`        | `@NotBlank`, `@Size(max = 20)` |
 
 ---
 
