@@ -113,23 +113,6 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(MarketRateVersionNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleMarketRateVersionNotFound(
-            MarketRateVersionNotFoundException ex, HttpServletRequest request) {
-
-        log.warn("Resource not found: {} - path={}", ex.getMessage(), request.getRequestURI());
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-            ApiErrorResponse.builder()
-                .status(HttpStatus.NOT_FOUND.value())
-                .error(HttpStatus.NOT_FOUND.getReasonPhrase())
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .timestamp(Instant.now())
-                .build()
-        );
-    }
-
     @ExceptionHandler(DepositRateNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleDepositRateNotFound(
             DepositRateNotFoundException ex, HttpServletRequest request) {

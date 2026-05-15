@@ -2,15 +2,12 @@ package com.citizens.banking.liquidity.service;
 
 import com.citizens.banking.liquidity.domain.DepositEntity;
 import com.citizens.banking.liquidity.domain.DepositRateEntity;
-import com.citizens.banking.liquidity.domain.MarketRateVersionEntity;
 import com.citizens.banking.liquidity.dto.CreateDepositRateRequest;
 import com.citizens.banking.liquidity.dto.DepositRateResponse;
 import com.citizens.banking.liquidity.exception.DepositNotFoundException;
 import com.citizens.banking.liquidity.exception.DepositRateNotFoundException;
-import com.citizens.banking.liquidity.exception.MarketRateVersionNotFoundException;
 import com.citizens.banking.liquidity.repository.DepositRateRepository;
 import com.citizens.banking.liquidity.repository.DepositRepository;
-import com.citizens.banking.liquidity.repository.MarketRateVersionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,7 +23,6 @@ public class DepositRateService {
 
     private final DepositRateRepository depositRateRepository;
     private final DepositRepository depositRepository;
-    private final MarketRateVersionRepository marketRateVersionRepository;
 
     @Transactional(readOnly = true)
     public List<DepositRateResponse> findAll() {
@@ -58,16 +54,10 @@ public class DepositRateService {
                     return new DepositNotFoundException(request.getDepositId());
                 });
 
-        MarketRateVersionEntity marketRateVersion = marketRateVersionRepository.findById(request.getRateVersionId())
-                .orElseThrow(() -> {
-                    log.warn("MarketRateVersion not found during deposit rate creation rateVersionId={}", request.getRateVersionId());
-                    return new MarketRateVersionNotFoundException(request.getRateVersionId());
-                });
-
         OffsetDateTime now = OffsetDateTime.now();
         DepositRateEntity entity = DepositRateEntity.builder()
                 .deposit(deposit)
-                .marketRateVersion(marketRateVersion)
+                .rateVersionId(request.getRateVersionId())
                 .allInRate(request.getAllInRate())
                 .status(request.getStatus())
                 .createdAt(now)
@@ -83,7 +73,7 @@ public class DepositRateService {
         return DepositRateResponse.builder()
                 .depositRateId(entity.getDepositRateId())
                 .depositId(entity.getDeposit().getDepositId())
-                .rateVersionId(entity.getMarketRateVersion().getRateVersionId())
+                .rateVersionId(entity.getRateVersionId())
                 .allInRate(entity.getAllInRate())
                 .status(entity.getStatus())
                 .createdAt(entity.getCreatedAt())

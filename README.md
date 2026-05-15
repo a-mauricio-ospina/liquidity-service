@@ -38,15 +38,13 @@ src/main/java/com/citizens/banking/liquidity/
 │   ├── DepositController.java
 │   ├── DepositRateController.java
 │   ├── DepositSubAccountController.java
-│   ├── HealthController.java
-│   └── MarketRateVersionController.java
+│   └── HealthController.java
 ├── domain/                         # JPA entities (persistence model)
 │   ├── AccountEntity.java
 │   ├── CustomerEntity.java
 │   ├── DepositEntity.java
 │   ├── DepositRateEntity.java
-│   ├── DepositSubAccountEntity.java
-│   └── MarketRateVersionEntity.java
+│   └── DepositSubAccountEntity.java
 ├── dto/                            # Immutable data transfer objects
 │   ├── AccountResponse.java
 │   ├── ApiErrorResponse.java
@@ -55,35 +53,30 @@ src/main/java/com/citizens/banking/liquidity/
 │   ├── CreateDepositRateRequest.java        # Request DTO with Jakarta Validation annotations
 │   ├── CreateDepositRequest.java            # Request DTO with Jakarta Validation annotations
 │   ├── CreateDepositSubAccountRequest.java  # Request DTO with Jakarta Validation annotations
-│   ├── CreateMarketRateVersionRequest.java  # Request DTO with Jakarta Validation annotations
 │   ├── CustomerResponse.java
 │   ├── DepositRateResponse.java
 │   ├── DepositResponse.java
 │   ├── DepositSubAccountResponse.java
-│   ├── HealthResponse.java
-│   └── MarketRateVersionResponse.java
+│   └── HealthResponse.java
 ├── exception/                      # Domain exceptions and global handler
 │   ├── AccountNotFoundException.java
 │   ├── CustomerNotFoundException.java
 │   ├── DepositNotFoundException.java
 │   ├── DepositRateNotFoundException.java
 │   ├── DepositSubAccountNotFoundException.java
-│   ├── GlobalExceptionHandler.java
-│   └── MarketRateVersionNotFoundException.java
+│   └── GlobalExceptionHandler.java
 ├── repository/                     # Spring Data JPA repositories
 │   ├── AccountRepository.java
 │   ├── CustomerRepository.java
 │   ├── DepositRateRepository.java
 │   ├── DepositRepository.java
-│   ├── DepositSubAccountRepository.java
-│   └── MarketRateVersionRepository.java
+│   └── DepositSubAccountRepository.java
 ├── service/                        # Business logic
 │   ├── AccountService.java
 │   ├── CustomerService.java
 │   ├── DepositRateService.java
 │   ├── DepositService.java
-│   ├── DepositSubAccountService.java
-│   └── MarketRateVersionService.java
+│   └── DepositSubAccountService.java
 └── util/                           # Constants and static helpers
     └── DepositConstants.java
 ```
@@ -222,34 +215,17 @@ Each deposit sub-account belongs to a `Deposit` via a Many-to-One relationship (
 | `created_at`              | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                  |
 | `updated_at`              | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                  |
 
-### MarketRateVersion (`market_rate_version` table)
-
-Standalone entity — no foreign keys to other tables. Intended to hold versioned market rate snapshots for future use by rate-linked entities.
-
-| Column            | PostgreSQL Type  | Java Type        | Constraints        |
-|-------------------|-----------------|------------------|--------------------|
-| `rate_version_id` | `BIGINT`        | `Long`           | PK, auto-generated |
-| `base_rate`       | `NUMERIC(18,2)` | `BigDecimal`     | NOT NULL           |
-| `spread`          | `NUMERIC(18,2)` | `BigDecimal`     | NOT NULL           |
-| `all_in_rate`     | `NUMERIC(18,2)` | `BigDecimal`     | NOT NULL           |
-| `effective_from`  | `DATE`          | `LocalDate`      | NOT NULL           |
-| `effective_till`  | `DATE`          | `LocalDate`      | nullable           |
-| `created_at`      | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL           |
-| `updated_at`      | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL           |
-
 ### DepositRate (`deposit_rate` table)
 
-Each deposit rate links a `Deposit` with a `MarketRateVersion` via two Many-to-One relationships.
-
-| Column            | PostgreSQL Type  | Java Type                  | Constraints                              |
-|-------------------|-----------------|----------------------------|------------------------------------------|
-| `deposit_rate_id` | `BIGINT`        | `Long`                     | PK, auto-generated                       |
-| `deposit_id`      | `BIGINT`        | `DepositEntity`            | FK → `deposit`, NOT NULL                 |
-| `rate_version_id` | `BIGINT`        | `MarketRateVersionEntity`  | FK → `market_rate_version`, NOT NULL     |
-| `all_in_rate`     | `NUMERIC(18,2)` | `BigDecimal`               | NOT NULL                                 |
-| `status`          | `VARCHAR(20)`   | `String`                   | NOT NULL                                 |
-| `created_at`      | `TIMESTAMPTZ`   | `OffsetDateTime`           | NOT NULL                                 |
-| `updated_at`      | `TIMESTAMPTZ`   | `OffsetDateTime`           | NOT NULL                                 |
+| Column            | PostgreSQL Type  | Java Type        | Constraints              |
+|-------------------|-----------------|------------------|--------------------------|
+| `deposit_rate_id` | `BIGINT`        | `Long`           | PK, auto-generated       |
+| `deposit_id`      | `BIGINT`        | `DepositEntity`  | FK → `deposit`, NOT NULL |
+| `rate_version_id` | `BIGINT`        | `Long`           | NOT NULL                 |
+| `all_in_rate`     | `NUMERIC(18,2)` | `BigDecimal`     | NOT NULL                 |
+| `status`          | `VARCHAR(20)`   | `String`         | NOT NULL                 |
+| `created_at`      | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                 |
+| `updated_at`      | `TIMESTAMPTZ`   | `OffsetDateTime` | NOT NULL                 |
 
 ---
 
@@ -651,103 +627,6 @@ Each deposit sub-account is linked to an existing `Deposit` via `depositId`. Cre
 | `partyName` | `@NotBlank`, `@Size(max = 255)`    |
 | `share`     | `@NotNull`, `@Positive`            |
 | `rate`      | `@NotNull`, `@Positive`            |
-
----
-
-### MarketRateVersions
-
-| Method | Endpoint                                       | Description                      |
-|--------|------------------------------------------------|----------------------------------|
-| GET    | `/api/v1/market-rate-versions`                 | List all market rate versions    |
-| GET    | `/api/v1/market-rate-versions/{rateVersionId}` | Get market rate version by ID    |
-| POST   | `/api/v1/market-rate-versions`                 | Create a new market rate version |
-
-Standalone entity — no parent validation required. `effectiveTill` is optional.
-
-**GET /api/v1/market-rate-versions** — example response:
-
-```json
-[
-  {
-    "rateVersionId": 1,
-    "baseRate": 4.00,
-    "spread": 0.25,
-    "allInRate": 4.25,
-    "effectiveFrom": "2026-01-01",
-    "effectiveTill": null,
-    "createdAt": "2026-05-15T09:00:00-05:00",
-    "updatedAt": "2026-05-15T09:00:00-05:00"
-  }
-]
-```
-
-**GET /api/v1/market-rate-versions/99** — not found response:
-
-```json
-{
-  "status": 404,
-  "error": "Not Found",
-  "message": "MarketRateVersion not found with id: 99",
-  "path": "/api/v1/market-rate-versions/99",
-  "timestamp": "2026-05-15T14:00:00Z",
-  "fieldErrors": null
-}
-```
-
-**POST /api/v1/market-rate-versions** — example request:
-
-```json
-{
-  "baseRate": 4.00,
-  "spread": 0.25,
-  "allInRate": 4.25,
-  "effectiveFrom": "2026-01-01",
-  "effectiveTill": null
-}
-```
-
-`HTTP 201 Created` — example response body:
-
-```json
-{
-  "rateVersionId": 1,
-  "baseRate": 4.00,
-  "spread": 0.25,
-  "allInRate": 4.25,
-  "effectiveFrom": "2026-01-01",
-  "effectiveTill": null,
-  "createdAt": "2026-05-15T09:00:00-05:00",
-  "updatedAt": "2026-05-15T09:00:00-05:00"
-}
-```
-
-**POST /api/v1/market-rate-versions** — validation error response (`HTTP 400 Bad Request`):
-
-```json
-{
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Validation failed",
-  "path": "/api/v1/market-rate-versions",
-  "timestamp": "2026-05-15T14:00:00Z",
-  "fieldErrors": {
-    "baseRate": "must not be null",
-    "spread": "must be greater than 0",
-    "allInRate": "must not be null",
-    "effectiveFrom": "must not be null"
-  }
-}
-```
-
-### Validation Rules — `CreateMarketRateVersionRequest`
-
-| Field           | Constraints             |
-|-----------------|-------------------------|
-| `baseRate`      | `@NotNull`, `@Positive` |
-| `spread`        | `@NotNull`, `@Positive` |
-| `allInRate`     | `@NotNull`, `@Positive` |
-| `effectiveFrom` | `@NotNull`              |
-| `effectiveTill` | optional, no constraint |
 
 ---
 

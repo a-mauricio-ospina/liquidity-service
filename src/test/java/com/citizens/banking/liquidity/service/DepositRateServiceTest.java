@@ -4,15 +4,12 @@ import com.citizens.banking.liquidity.domain.AccountEntity;
 import com.citizens.banking.liquidity.domain.CustomerEntity;
 import com.citizens.banking.liquidity.domain.DepositEntity;
 import com.citizens.banking.liquidity.domain.DepositRateEntity;
-import com.citizens.banking.liquidity.domain.MarketRateVersionEntity;
 import com.citizens.banking.liquidity.dto.CreateDepositRateRequest;
 import com.citizens.banking.liquidity.dto.DepositRateResponse;
 import com.citizens.banking.liquidity.exception.DepositNotFoundException;
 import com.citizens.banking.liquidity.exception.DepositRateNotFoundException;
-import com.citizens.banking.liquidity.exception.MarketRateVersionNotFoundException;
 import com.citizens.banking.liquidity.repository.DepositRateRepository;
 import com.citizens.banking.liquidity.repository.DepositRepository;
-import com.citizens.banking.liquidity.repository.MarketRateVersionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -39,9 +36,6 @@ class DepositRateServiceTest {
 
     @Mock
     private DepositRepository depositRepository;
-
-    @Mock
-    private MarketRateVersionRepository marketRateVersionRepository;
 
     @InjectMocks
     private DepositRateService depositRateService;
@@ -83,23 +77,11 @@ class DepositRateServiceTest {
                 .build();
     }
 
-    private MarketRateVersionEntity buildMarketRateVersion() {
-        return MarketRateVersionEntity.builder()
-                .rateVersionId(1L)
-                .baseRate(new BigDecimal("4.00"))
-                .spread(new BigDecimal("0.25"))
-                .allInRate(new BigDecimal("4.25"))
-                .effectiveFrom(LocalDate.of(2026, 1, 1))
-                .createdAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .build();
-    }
-
     private DepositRateEntity buildEntity() {
         return DepositRateEntity.builder()
                 .depositRateId(500L)
                 .deposit(buildDeposit())
-                .marketRateVersion(buildMarketRateVersion())
+                .rateVersionId(1L)
                 .allInRate(new BigDecimal("4.25"))
                 .status("ACTIVE")
                 .createdAt(OffsetDateTime.now())
@@ -151,7 +133,6 @@ class DepositRateServiceTest {
     @Test
     void create_savesEntityAndReturnsResponse() {
         when(depositRepository.findById(100L)).thenReturn(Optional.of(buildDeposit()));
-        when(marketRateVersionRepository.findById(1L)).thenReturn(Optional.of(buildMarketRateVersion()));
         when(depositRateRepository.save(any(DepositRateEntity.class))).thenReturn(buildEntity());
 
         CreateDepositRateRequest request = CreateDepositRateRequest.builder()
@@ -182,23 +163,6 @@ class DepositRateServiceTest {
 
         assertThatThrownBy(() -> depositRateService.create(request))
                 .isInstanceOf(DepositNotFoundException.class)
-                .hasMessageContaining("99");
-    }
-
-    @Test
-    void create_throwsMarketRateVersionNotFoundException_whenRateVersionNotFound() {
-        when(depositRepository.findById(100L)).thenReturn(Optional.of(buildDeposit()));
-        when(marketRateVersionRepository.findById(99L)).thenReturn(Optional.empty());
-
-        CreateDepositRateRequest request = CreateDepositRateRequest.builder()
-                .depositId(100L)
-                .rateVersionId(99L)
-                .allInRate(new BigDecimal("4.25"))
-                .status("ACTIVE")
-                .build();
-
-        assertThatThrownBy(() -> depositRateService.create(request))
-                .isInstanceOf(MarketRateVersionNotFoundException.class)
                 .hasMessageContaining("99");
     }
 }

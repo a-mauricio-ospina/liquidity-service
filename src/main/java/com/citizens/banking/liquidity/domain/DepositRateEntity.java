@@ -26,9 +26,8 @@ public class DepositRateEntity {
     @JoinColumn(name = "deposit_id", nullable = false)
     private DepositEntity deposit;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "rate_version_id", nullable = false)
-    private MarketRateVersionEntity marketRateVersion;
+    @Column(name = "rate_version_id", nullable = false)
+    private Long rateVersionId;
 
     @Column(name = "all_in_rate", nullable = false, precision = 18, scale = 2)
     private BigDecimal allInRate;
