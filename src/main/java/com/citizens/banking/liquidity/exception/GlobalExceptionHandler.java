@@ -62,40 +62,6 @@ public class GlobalExceptionHandler {
         );
     }
 
-    @ExceptionHandler(CustomerNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleCustomerNotFound(
-            CustomerNotFoundException ex, HttpServletRequest request) {
-
-        log.warn("Resource not found: {} - path={}", ex.getMessage(), request.getRequestURI());
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-            ApiErrorResponse.builder()
-                .status(HttpStatus.NOT_FOUND.value())
-                .error(HttpStatus.NOT_FOUND.getReasonPhrase())
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .timestamp(Instant.now())
-                .build()
-        );
-    }
-
-    @ExceptionHandler(AccountNotFoundException.class)
-    public ResponseEntity<ApiErrorResponse> handleAccountNotFound(
-            AccountNotFoundException ex, HttpServletRequest request) {
-
-        log.warn("Resource not found: {} - path={}", ex.getMessage(), request.getRequestURI());
-
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-            ApiErrorResponse.builder()
-                .status(HttpStatus.NOT_FOUND.value())
-                .error(HttpStatus.NOT_FOUND.getReasonPhrase())
-                .message(ex.getMessage())
-                .path(request.getRequestURI())
-                .timestamp(Instant.now())
-                .build()
-        );
-    }
-
     @ExceptionHandler(DepositSubAccountNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleDepositSubAccountNotFound(
             DepositSubAccountNotFoundException ex, HttpServletRequest request) {

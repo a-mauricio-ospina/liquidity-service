@@ -1,6 +1,5 @@
 package com.citizens.banking.liquidity.deposit.domain.model;
 
-import com.citizens.banking.liquidity.account.domain.model.AccountEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -23,9 +22,8 @@ public class DepositEntity {
     @Column(name = "deposit_id")
     private Long depositId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id", nullable = false)
-    private AccountEntity account;
+    @Column(name = "account_id", nullable = false)
+    private Long accountId;
 
     @Column(name = "dpf_ref_id", nullable = false, length = 100)
     private String dpfRefId;

@@ -1,7 +1,5 @@
 package com.citizens.banking.liquidity.deposit.application.service;
 
-import com.citizens.banking.liquidity.account.domain.model.AccountEntity;
-import com.citizens.banking.liquidity.customer.domain.model.CustomerEntity;
 import com.citizens.banking.liquidity.deposit.domain.model.DepositEntity;
 import com.citizens.banking.liquidity.deposit.domain.model.DepositSubAccountEntity;
 import com.citizens.banking.liquidity.deposit.dto.request.CreateDepositSubAccountRequest;
@@ -17,7 +15,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -41,33 +38,9 @@ class DepositSubAccountServiceTest {
     private DepositSubAccountService depositSubAccountService;
 
     private DepositEntity buildDeposit() {
-        CustomerEntity customer = CustomerEntity.builder()
-                .customerId(1L)
-                .customerName("Acme Corporation")
-                .customerType("CORPORATE")
-                .status("ACTIVE")
-                .rmId(501L)
-                .channel("DIGITAL")
-                .region("NORTHEAST")
-                .createdAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .build();
-
-        AccountEntity account = AccountEntity.builder()
-                .accountId(10L)
-                .customer(customer)
-                .accountNumber("ACC-0001-2026")
-                .accountType("CHECKING")
-                .currency("USD")
-                .status("ACTIVE")
-                .effectiveFrom(LocalDate.of(2026, 1, 1))
-                .createdAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .build();
-
         return DepositEntity.builder()
                 .depositId(100L)
-                .account(account)
+                .accountId(10L)
                 .dpfRefId("DPF-2026-00001")
                 .depositAmount(new BigDecimal("50000.00"))
                 .currency("USD")

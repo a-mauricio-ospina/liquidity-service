@@ -1,13 +1,9 @@
 package com.citizens.banking.liquidity.deposit.application.service;
 
-import com.citizens.banking.liquidity.account.domain.model.AccountEntity;
-import com.citizens.banking.liquidity.account.infrastructure.repository.AccountRepository;
-import com.citizens.banking.liquidity.customer.domain.model.CustomerEntity;
 import com.citizens.banking.liquidity.deposit.domain.model.DepositEntity;
 import com.citizens.banking.liquidity.deposit.dto.request.CreateDepositRequest;
 import com.citizens.banking.liquidity.deposit.dto.response.DepositResponse;
 import com.citizens.banking.liquidity.deposit.infrastructure.repository.DepositRepository;
-import com.citizens.banking.liquidity.exception.AccountNotFoundException;
 import com.citizens.banking.liquidity.exception.DepositNotFoundException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,7 +12,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -33,42 +28,13 @@ class DepositServiceTest {
     @Mock
     private DepositRepository depositRepository;
 
-    @Mock
-    private AccountRepository accountRepository;
-
     @InjectMocks
     private DepositService depositService;
-
-    private AccountEntity buildAccount() {
-        CustomerEntity customer = CustomerEntity.builder()
-                .customerId(1L)
-                .customerName("Acme Corporation")
-                .customerType("CORPORATE")
-                .status("ACTIVE")
-                .rmId(501L)
-                .channel("DIGITAL")
-                .region("NORTHEAST")
-                .createdAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .build();
-
-        return AccountEntity.builder()
-                .accountId(10L)
-                .customer(customer)
-                .accountNumber("ACC-0001-2026")
-                .accountType("CHECKING")
-                .currency("USD")
-                .status("ACTIVE")
-                .effectiveFrom(LocalDate.of(2026, 1, 1))
-                .createdAt(OffsetDateTime.now())
-                .updatedAt(OffsetDateTime.now())
-                .build();
-    }
 
     private DepositEntity buildEntity() {
         return DepositEntity.builder()
                 .depositId(100L)
-                .account(buildAccount())
+                .accountId(10L)
                 .dpfRefId("DPF-2026-00001")
                 .depositAmount(new BigDecimal("50000.00"))
                 .currency("USD")
@@ -121,7 +87,6 @@ class DepositServiceTest {
 
     @Test
     void create_savesEntityAndReturnsResponse() {
-        when(accountRepository.findById(10L)).thenReturn(Optional.of(buildAccount()));
         when(depositRepository.save(any(DepositEntity.class))).thenReturn(buildEntity());
 
         CreateDepositRequest request = CreateDepositRequest.builder()
@@ -138,22 +103,5 @@ class DepositServiceTest {
         assertThat(result.getDpfRefId()).isEqualTo("DPF-2026-00001");
         assertThat(result.getAccountId()).isEqualTo(10L);
         verify(depositRepository).save(any(DepositEntity.class));
-    }
-
-    @Test
-    void create_throwsAccountNotFoundException_whenAccountNotFound() {
-        when(accountRepository.findById(99L)).thenReturn(Optional.empty());
-
-        CreateDepositRequest request = CreateDepositRequest.builder()
-                .accountId(99L)
-                .dpfRefId("DPF-2026-00001")
-                .depositAmount(new BigDecimal("50000.00"))
-                .currency("USD")
-                .status("ACTIVE")
-                .build();
-
-        assertThatThrownBy(() -> depositService.create(request))
-                .isInstanceOf(AccountNotFoundException.class)
-                .hasMessageContaining("99");
     }
 }
